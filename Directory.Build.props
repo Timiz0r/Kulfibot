@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!-- proprietary concepts -->
+  <PropertyGroup>
+    <!-- drop the trailing slash -->
+    <RepoRoot>$(MSBuildThisFileDirectory.TrimEnd('\').TrimEnd('/'))</RepoRoot>
+    <SrcRoot>$(RepoRoot)\src</SrcRoot>
+    <OutRoot>$(RepoRoot)\out</OutRoot>
+    <PublishRoot>$(RepoRoot)\out</PublishRoot>
+
+    <!--
+      meant to be overriden via command-line, such as in azure pipelines.
+      PullRequest and Official are two others
+    -->
+    <BuildKind>Local</BuildKind>
+  </PropertyGroup>
+
+  <!-- build-related stuff -->
+  <PropertyGroup>
+    <!-- these can certainly be overriden at command-line, particularly for multi-targeting of these -->
+    <Configuration>Debug</Configuration>
+    <Configuration Condition="'$(BuildKind)' != 'Local'">Release</Configuration>
+    <TargetFramework>net5.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <CLSCompliant>true</CLSCompliant>
+
+    <Nullable>enable</Nullable>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+    <CodeAnalysisTreatWarningsAsErrors Condition="'$(BuildKind)' == 'Local'">false</CodeAnalysisTreatWarningsAsErrors>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors Condition="'$(BuildKind)' == 'Local'">false</TreatWarningsAsErrors>
+    <DisableIncrementalBuildIfWarnings>true</DisableIncrementalBuildIfWarnings>
+
+    <!--
+      would have preferred to use AssemblyName instead of MSBuildProject name. these didn't work:
+      * $(AssemblyName), because it gets set in Microsoft.Common.CurrentVersion.targets
+      * Doing this in Directory.Build.targets, because Microsoft.Common.CurrentVersion.targets is loaded before
+        Directory.Build.targets
+      * Using OutDir, because stuff doesn't get copied right
+
+      since it, at the time of writing, literally does this, there should be no problem:
+      <AssemblyName Condition=" '$(AssemblyName)'=='' ">$(MSBuildProjectName)</AssemblyName>
+    -->
+    <CommonOutputPath>$(OutRoot)\$(Configuration)\$(RuntimeIdentifier)\$(TargetFramework)</CommonOutputPath>
+    <OutputPath>$(CommonOutputPath)\$(MSBuildProjectName)</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+
+    <IsBuildTasksProject>false</IsBuildTasksProject>
+    <IsBuildTasksProject Condition="'$(MSBuildProjectFullPath)' == '$(RepoRoot)\build\Tasks\BuildTasks.csproj'">true</IsBuildTasksProject>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <UseGitVersioning>false</UseGitVersioning>
+    <UseGitVersioning Condition="'$(MSBuildProjectExtension)' == '.csproj'">true</UseGitVersioning>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference
+      Condition="'$(UseGitVersioning)' == 'true'"
+      Include="Nerdbank.GitVersioning" Version="3.3.37"
+      PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      two other options:
+      1. nuget package. is actually best overall, but dont feel like maintaining.
+      2. msbuild task. this is kinda less optimal for builds called on dirs/root.proj, since each actual csproj
+         will try to build this project, versus once thanks to how projectreferences work.
+
+      the only real downside I can think of is that this project shows up in the logs. maybe that and the extra
+      build artifact that's not meant for the actual product.
+    -->
+    <ProjectReference
+      Include="$(RepoRoot)\build\Tasks\BuildTasks.csproj"
+      Condition="'$(IsBuildTasksProject)' == 'false'"
+      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>
