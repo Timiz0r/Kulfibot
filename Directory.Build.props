@@ -23,11 +23,10 @@
     <TargetFramework>net5.0</TargetFramework>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <CLSCompliant>true</CLSCompliant>
-
     <Nullable>enable</Nullable>
+
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <AnalysisMode>AllEnabledByDefault</AnalysisMode>
-
     <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
     <CodeAnalysisTreatWarningsAsErrors Condition="'$(BuildKind)' == 'Local'">false</CodeAnalysisTreatWarningsAsErrors>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -48,6 +47,8 @@
     <OutputPath>$(CommonOutputPath)\$(MSBuildProjectName)</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+
+    <RequireXmlDeclarationInProject>true</RequireXmlDeclarationInProject>
 
     <IsBuildTasksProject>false</IsBuildTasksProject>
     <IsBuildTasksProject Condition="'$(MSBuildProjectFullPath)' == '$(RepoRoot)\build\Tasks\BuildTasks.csproj'">true</IsBuildTasksProject>

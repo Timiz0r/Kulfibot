@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
   <Import Project="$(RepoRoot)\build\CLSCompliantAttributeGeneration.targets" />
+  <Import Project="$(RepoRoot)\build\RequireXmlDeclarationInProject.targets" />
   <!--
     we check for BuildingInsideVisualStudio here because of omnisharp for instance. it has problems because:
     * it may not exist (and won't get built by omnisharp of course)
