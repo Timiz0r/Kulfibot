@@ -6,11 +6,6 @@ namespace Kulfibot.Test
 
     public class Tests
     {
-        [SetUp]
-        public void Setup()
-        {
-        }
-
         [Test]
         public async Task Bot_ReceivesMessages_WhenSentFromSource()
         {

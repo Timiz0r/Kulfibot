@@ -4,7 +4,7 @@ namespace Kulfibot
 
     public interface IMessageSource
     {
-        Task SubscribeAsync(IMessageSink sink);
-        Task UnsubscribeAsync(IMessageSink sink);
+        Task SubscribeAsync(IBotMessageSink sink);
+        Task UnsubscribeAsync(IBotMessageSink sink);
     }
 }

@@ -6,7 +6,7 @@ namespace Kulfibot
     using System.Linq;
     using System.Threading.Tasks;
 
-    public class Bot : IMessageSink
+    public class Bot : IBotMessageSink
     {
         private readonly BotConfiguration botConfiguration;
 
