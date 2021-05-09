@@ -1,47 +1,49 @@
 namespace Kulfibot.Test
 {
     using System.Collections.Immutable;
+    using System.Threading.Tasks;
     using NUnit.Framework;
 
     internal class BotSimulator
     {
+        private readonly SimulatorMessageSource messageSource = new();
+        private readonly SimulatorMessageHandler messageHandler = new();
+
         public BotSimulator()
         {
-            Messages = new MessageLogRecord(this);
+            Messages = new MessageRecord(this);
         }
 
-        public SimulatorMessageSource MessageSource { get; } = new();
-
-        public SimulatorMessageHandler MessageHandler { get; } = new();
-
-        public MessageLogRecord Messages { get; }
+        public MessageRecord Messages { get; }
 
         public BotConfiguration AsBotConfiguration() => new(
-            MessageSources: new[] { MessageSource },
-            MessageHandlers: new[] { MessageHandler }
+            MessageSources: new[] { messageSource },
+            MessageHandlers: new[] { messageHandler }
         );
 
         public void AssertRan()
         {
-            Assert.That(MessageSource.WasStarted);
-            Assert.That(MessageSource.IsRunning, Is.Not.True);
+            Assert.That(messageSource.WasStarted);
+            Assert.That(messageSource.IsRunning, Is.Not.True);
         }
 
         //the things we do for an ideal interface
-        internal class MessageLogRecord
+        internal class MessageRecord
         {
             private readonly BotSimulator simulator;
 
-            public MessageLogRecord(BotSimulator simulator)
+            public MessageRecord(BotSimulator simulator)
             {
                 this.simulator = simulator;
             }
 
-            public ImmutableList<Message> SentToBot => simulator.MessageHandler.Messages;
+            public ImmutableList<Message> SentToBot => simulator.messageHandler.Messages;
 
 #pragma warning disable CA1822 //rather purposely not supposed to be static. will fill it out later
             public ImmutableList<Message> ReceivedFromBot => ImmutableList<Message>.Empty;
 #pragma warning restore CA1822
+
+            public Task SendAsync(Message message) => this.simulator.messageSource.SendAsync(message);
         }
     }
 }

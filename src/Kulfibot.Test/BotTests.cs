@@ -14,7 +14,7 @@ namespace Kulfibot.Test
 
             Message message = new();
             await bot.StartAsync().ConfigureAwait(false);
-            await simulator.MessageSource.SendAsync(message).ConfigureAwait(false);
+            await simulator.Messages.SendAsync(message).ConfigureAwait(false);
             await bot.StopAsync().ConfigureAwait(false);
 
             simulator.AssertRan();
