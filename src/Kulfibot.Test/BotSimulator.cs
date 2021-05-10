@@ -1,6 +1,8 @@
 namespace Kulfibot.Test
 {
+    using System;
     using System.Collections.Immutable;
+    using System.Linq;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -15,6 +17,11 @@ namespace Kulfibot.Test
         }
 
         public MessageRecord Messages { get; }
+
+        public BotConfiguration AsBotConfiguration(BotConfiguration basis) => new(
+            MessageSources: basis.MessageSources.Concat(new[] { messageSource }).ToArray(),
+            MessageHandlers: basis.MessageHandlers.Concat(new[] { messageHandler }).ToArray()
+        );
 
         public BotConfiguration AsBotConfiguration() => new(
             MessageSources: new[] { messageSource },
