@@ -14,9 +14,10 @@ namespace Kulfibot.Test
             Bot bot = new(simulator.AsBotConfiguration());
 
             Message message = new();
-            await bot.StartAsync().ConfigureAwait(false);
-            await simulator.Messages.SendToBotAsync(message).ConfigureAwait(false);
-            await bot.StopAsync().ConfigureAwait(false);
+            await using (await bot.RunAsync().ConfigureAwait(false))
+            {
+                await simulator.Messages.SendToBotAsync(message).ConfigureAwait(false);
+            }
 
             //TODO: dont really need to AssertRan all the time, so get rid of that method and move logic here, maybe
             simulator.AssertRan();
@@ -31,17 +32,19 @@ namespace Kulfibot.Test
             ExclusiveHandler b = new(_ => true, _ => Messages.None);
             BotConfiguration config = new(
                 Array.Empty<IMessageTransport>(),
-                new IMessageHandler[] { a, b });
+                new[] { a, b });
             BotSimulator simulator = new();
             Bot bot = new(simulator.AsBotConfiguration(config));
 
-            await bot.StartAsync().ConfigureAwait(false);
-            //TODO: dont really want to propagate exceptions to the message sources, so will come up with something later
-            //probably some sort of IErrorHandler, or IMessageHandlers get errors they're related to,
-            //  or IMessageHandlers can get specifically informed of conflicts
-            Assert.That(
-                async () => await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false),
-                Throws.Exception.Message.Contains("Multiple handlers want exclusive handling of the message"));
+            await using (await bot.RunAsync().ConfigureAwait(false))
+            {
+                //TODO: dont really want to propagate exceptions to the message sources, so will come up with something later
+                //probably some sort of IErrorHandler, or IMessageHandlers get errors they're related to,
+                //  or IMessageHandlers can get specifically informed of conflicts
+                Assert.That(
+                    async () => await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false),
+                    Throws.Exception.Message.Contains("Multiple handlers want exclusive handling of the message"));
+            }
         }
 
         [Test]
@@ -51,15 +54,29 @@ namespace Kulfibot.Test
             ExclusiveHandler respondingHandler = new(_ => true, _ => response);
             BotConfiguration config = new(
                 Array.Empty<IMessageTransport>(),
-                new IMessageHandler[] { respondingHandler });
+                new[] { respondingHandler });
             BotSimulator simulator = new();
             Bot bot = new(simulator.AsBotConfiguration(config));
 
-            await bot.StartAsync().ConfigureAwait(false);
-            await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false);
+            await using (await bot.RunAsync().ConfigureAwait(false))
+            {
+                await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false);
+            }
 
             Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(1).Items);
             Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(response));
+        }
+
+        [Test]
+        public async Task Bot_Throws_WhenRunMultipleTimesBeforeStopping()
+        {
+            BotSimulator simulator = new();
+            Bot bot = new(simulator.AsBotConfiguration());
+
+            //didn't dispose, so not stopped
+            _ = await bot.RunAsync().ConfigureAwait(false);
+
+            Assert.That(async () => _ = await bot.RunAsync().ConfigureAwait(false), Throws.Exception);
         }
 
         //TODO: if making a delegate-based handler that can replace these, do that

@@ -6,6 +6,8 @@ namespace Kulfibot
     using System.Linq;
     using System.Threading.Tasks;
 
+    //TODO: it would perhaps be more correct for this not to be an IBotMessageSink.
+    //the main consumer of Bot isn't meant to be consumed thru this (aka have MessageReceivedAsync called)
     public class Bot : IBotMessageSink
     {
         private readonly BotConfiguration botConfiguration;
@@ -15,11 +17,13 @@ namespace Kulfibot
             this.botConfiguration = botConfiguration;
         }
 
-        public Task StartAsync() =>
-            Task.WhenAll(botConfiguration.MessageTransports.Select(source => source.SubscribeAsync(this)));
+        public async Task<IAsyncDisposable> RunAsync()
+        {
+            await Task.WhenAll(
+                botConfiguration.MessageTransports.Select(source => source.SubscribeAsync(this))).ConfigureAwait(false);
 
-        public Task StopAsync() =>
-            Task.WhenAll(botConfiguration.MessageTransports.Select(source => source.UnsubscribeAsync(this)));
+            return new RunTracker(this);
+        }
 
         //TODO: will probably use tpl dataflow to basically move this for sure off the thread of the source
         //additionally, we don't want exceptions to propagate to the sender, either.
@@ -56,6 +60,21 @@ namespace Kulfibot
 
             await Task.WhenAll(
                 botConfiguration.MessageTransports.Select(mt => mt.SendMessagesAsync(messages))).ConfigureAwait(false);
+        }
+
+        private class RunTracker : IAsyncDisposable
+        {
+            private readonly Bot bot;
+
+            public RunTracker(Bot bot)
+            {
+                this.bot = bot;
+            }
+
+            //start is run by the one that instantiated this instance, since we certainly cant call it in the ctor
+            public ValueTask DisposeAsync() => new(
+                Task.WhenAll(
+                    this.bot.botConfiguration.MessageTransports.Select(source => source.UnsubscribeAsync(this.bot))));
         }
     }
 }
