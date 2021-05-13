@@ -11,16 +11,13 @@ namespace Kulfibot.Test
         public async Task Bot_GivesMessagesToHandlers_WhenSentFromSource()
         {
             BotSimulator simulator = new();
-            Bot bot = new(simulator.AsBotConfiguration());
 
             Message message = new();
-            await using (await bot.RunAsync().ConfigureAwait(false))
+            await using (await simulator.RunBotAsync().ConfigureAwait(false))
             {
                 await simulator.Messages.SendToBotAsync(message).ConfigureAwait(false);
             }
 
-            //TODO: dont really need to AssertRan all the time, so get rid of that method and move logic here, maybe
-            simulator.AssertRan();
             Assert.That(simulator.Messages.SentToBot, Has.Exactly(1).Items);
             Assert.That(simulator.Messages.SentToBot, Has.Member(message));
         }
@@ -34,9 +31,8 @@ namespace Kulfibot.Test
                 Array.Empty<IMessageTransport>(),
                 new[] { a, b });
             BotSimulator simulator = new();
-            Bot bot = new(simulator.AsBotConfiguration(config));
 
-            await using (await bot.RunAsync().ConfigureAwait(false))
+            await using (await simulator.RunBotAsync(config).ConfigureAwait(false))
             {
                 //TODO: dont really want to propagate exceptions to the message sources, so will come up with something later
                 //probably some sort of IErrorHandler, or IMessageHandlers get errors they're related to,
@@ -56,9 +52,8 @@ namespace Kulfibot.Test
                 Array.Empty<IMessageTransport>(),
                 new[] { respondingHandler });
             BotSimulator simulator = new();
-            Bot bot = new(simulator.AsBotConfiguration(config));
 
-            await using (await bot.RunAsync().ConfigureAwait(false))
+            await using (await simulator.RunBotAsync(config).ConfigureAwait(false))
             {
                 await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false);
             }

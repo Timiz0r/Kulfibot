@@ -18,20 +18,32 @@ namespace Kulfibot.Test
 
         public MessageRecord Messages { get; }
 
+        public BotConfiguration AsBotConfiguration() => AsBotConfiguration(
+            new BotConfiguration(
+                Array.Empty<IMessageTransport>(),
+                Array.Empty<IMessageHandler>()
+            ));
+
         public BotConfiguration AsBotConfiguration(BotConfiguration basis) => new(
             MessageTransports: basis.MessageTransports.Concat(new[] { messageTransport }).ToArray(),
             MessageHandlers: basis.MessageHandlers.Concat(new[] { messageHandler }).ToArray()
         );
 
-        public BotConfiguration AsBotConfiguration() => new(
-            MessageTransports: new[] { messageTransport },
-            MessageHandlers: new[] { messageHandler }
-        );
-
-        public void AssertRan()
+        public Task<IAsyncDisposable> RunBotAsync()
         {
-            Assert.That(messageTransport.WasStarted);
-            Assert.That(messageTransport.IsRunning, Is.Not.True);
+            BotConfiguration configuration = AsBotConfiguration();
+
+            Bot bot = new(configuration);
+            return bot.RunAsync();
+        }
+
+        public Task<IAsyncDisposable> RunBotAsync(BotConfiguration basis)
+        {
+            BotConfiguration configuration = AsBotConfiguration(basis);
+
+            //this much code duplication is fine
+            Bot bot = new(configuration);
+            return bot.RunAsync();
         }
 
         //the things we do for an ideal interface
@@ -49,6 +61,28 @@ namespace Kulfibot.Test
             public ImmutableList<Message> ReceivedFromBot => simulator.messageTransport.MessagesSent;
 
             public Task SendToBotAsync(Message message) => this.simulator.messageTransport.SendToBotAsync(message);
+        }
+
+        private class RunTracker : IAsyncDisposable
+        {
+            private readonly IAsyncDisposable botRunTracker;
+            private readonly BotSimulator simulator;
+
+            public RunTracker(
+                IAsyncDisposable botRunTracker,
+                BotSimulator simulator
+            )
+            {
+                this.botRunTracker = botRunTracker;
+                this.simulator = simulator;
+            }
+            public async ValueTask DisposeAsync()
+            {
+                await botRunTracker.DisposeAsync().ConfigureAwait(false);
+
+                Assert.That(this.simulator.messageTransport.WasStarted);
+                Assert.That(this.simulator.messageTransport.IsRunning, Is.Not.True);
+            }
         }
     }
 }
