@@ -10,38 +10,32 @@ namespace Kulfibot.Test
     {
         private readonly SimulatorMessageTransport messageTransport = new();
         private readonly SimulatorMessageHandler messageHandler = new();
+        private readonly BotConfiguration basisConfiguration;
 
-        public BotSimulator()
+        public BotSimulator() : this(new(
+            Array.Empty<IMessageTransport>(),
+            Array.Empty<IMessageHandler>()
+        ))
         {
-            Messages = new MessageRecord(this);
+        }
+
+        public BotSimulator(BotConfiguration basisConfiguration)
+        {
+            this.Messages = new MessageRecord(this);
+            this.basisConfiguration = basisConfiguration;
         }
 
         public MessageRecord Messages { get; }
 
-        public BotConfiguration AsBotConfiguration() => AsBotConfiguration(
-            new BotConfiguration(
-                Array.Empty<IMessageTransport>(),
-                Array.Empty<IMessageHandler>()
-            ));
-
-        public BotConfiguration AsBotConfiguration(BotConfiguration basis) => new(
-            MessageTransports: basis.MessageTransports.Concat(new[] { messageTransport }).ToArray(),
-            MessageHandlers: basis.MessageHandlers.Concat(new[] { messageHandler }).ToArray()
+        public BotConfiguration AsBotConfiguration() => new(
+            MessageTransports: basisConfiguration.MessageTransports.Concat(new[] { messageTransport }).ToArray(),
+            MessageHandlers: basisConfiguration.MessageHandlers.Concat(new[] { messageHandler }).ToArray()
         );
 
         public Task<IAsyncDisposable> RunBotAsync()
         {
             BotConfiguration configuration = AsBotConfiguration();
 
-            Bot bot = new(configuration);
-            return bot.RunAsync();
-        }
-
-        public Task<IAsyncDisposable> RunBotAsync(BotConfiguration basis)
-        {
-            BotConfiguration configuration = AsBotConfiguration(basis);
-
-            //this much code duplication is fine
             Bot bot = new(configuration);
             return bot.RunAsync();
         }

@@ -30,9 +30,9 @@ namespace Kulfibot.Test
             BotConfiguration config = new(
                 Array.Empty<IMessageTransport>(),
                 new[] { a, b });
-            BotSimulator simulator = new();
+            BotSimulator simulator = new(config);
 
-            await using (await simulator.RunBotAsync(config).ConfigureAwait(false))
+            await using (await simulator.RunBotAsync().ConfigureAwait(false))
             {
                 //TODO: dont really want to propagate exceptions to the message sources, so will come up with something later
                 //probably some sort of IErrorHandler, or IMessageHandlers get errors they're related to,
@@ -51,9 +51,9 @@ namespace Kulfibot.Test
             BotConfiguration config = new(
                 Array.Empty<IMessageTransport>(),
                 new[] { respondingHandler });
-            BotSimulator simulator = new();
+            BotSimulator simulator = new(config);
 
-            await using (await simulator.RunBotAsync(config).ConfigureAwait(false))
+            await using (await simulator.RunBotAsync().ConfigureAwait(false))
             {
                 await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false);
             }
