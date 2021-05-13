@@ -8,7 +8,7 @@ namespace Kulfibot.Test
 
     internal class BotSimulator
     {
-        private readonly SimulatorMessageSource messageSource = new();
+        private readonly SimulatorMessageTransport messageTransport = new();
         private readonly SimulatorMessageHandler messageHandler = new();
 
         public BotSimulator()
@@ -19,19 +19,19 @@ namespace Kulfibot.Test
         public MessageRecord Messages { get; }
 
         public BotConfiguration AsBotConfiguration(BotConfiguration basis) => new(
-            MessageSources: basis.MessageSources.Concat(new[] { messageSource }).ToArray(),
+            MessageTransports: basis.MessageTransports.Concat(new[] { messageTransport }).ToArray(),
             MessageHandlers: basis.MessageHandlers.Concat(new[] { messageHandler }).ToArray()
         );
 
         public BotConfiguration AsBotConfiguration() => new(
-            MessageSources: new[] { messageSource },
+            MessageTransports: new[] { messageTransport },
             MessageHandlers: new[] { messageHandler }
         );
 
         public void AssertRan()
         {
-            Assert.That(messageSource.WasStarted);
-            Assert.That(messageSource.IsRunning, Is.Not.True);
+            Assert.That(messageTransport.WasStarted);
+            Assert.That(messageTransport.IsRunning, Is.Not.True);
         }
 
         //the things we do for an ideal interface
@@ -44,13 +44,11 @@ namespace Kulfibot.Test
                 this.simulator = simulator;
             }
 
-            public ImmutableList<Message> SentToBot => simulator.messageHandler.Messages;
+            public ImmutableList<Message> SentToBot => simulator.messageHandler.MessagesReceived;
 
-#pragma warning disable CA1822 //rather purposely not supposed to be static. will fill it out later
-            public ImmutableList<Message> ReceivedFromBot => ImmutableList<Message>.Empty;
-#pragma warning restore CA1822
+            public ImmutableList<Message> ReceivedFromBot => simulator.messageTransport.MessagesSent;
 
-            public Task SendAsync(Message message) => this.simulator.messageSource.SendAsync(message);
+            public Task SendToBotAsync(Message message) => this.simulator.messageTransport.SendToBotAsync(message);
         }
     }
 }

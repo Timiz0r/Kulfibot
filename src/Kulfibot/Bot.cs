@@ -16,40 +16,46 @@ namespace Kulfibot
         }
 
         public Task StartAsync() =>
-            Task.WhenAll(botConfiguration.MessageSources.Select(source => source.SubscribeAsync(this)));
+            Task.WhenAll(botConfiguration.MessageTransports.Select(source => source.SubscribeAsync(this)));
 
         public Task StopAsync() =>
-            Task.WhenAll(botConfiguration.MessageSources.Select(source => source.UnsubscribeAsync(this)));
+            Task.WhenAll(botConfiguration.MessageTransports.Select(source => source.UnsubscribeAsync(this)));
 
         //TODO: will probably use tpl dataflow to basically move this for sure off the thread of the source
         //additionally, we don't want exceptions to propagate to the sender, either.
-        public Task MessageReceivedAsync(Message message)
+        public async Task MessageReceivedAsync(Message message)
         {
             //TODO: up for refactoring
-            Dictionary<MessageIntent, ImmutableArray<IMessageHandler>> handlersByIntent =
+            Dictionary<MessageIntent, IMessageHandler[]> handlersByIntent =
                 botConfiguration.MessageHandlers
                     .Select(handler => (handler, intent: handler.DeclareIntent(message)))
                     .GroupBy(item => item.intent, item => item.handler)
-                    .ToDictionary(group => group.Key, group => group.ToImmutableArray());
+                    .ToDictionary(group => group.Key, group => group.ToArray());
 
-            ImmutableArray<IMessageHandler> exclusiveHandlers = handlersByIntent.TryGetValue(
+            IMessageHandler[] exclusiveHandlers = handlersByIntent.TryGetValue(
                 MessageIntent.Exclusive,
-                out ImmutableArray<IMessageHandler> handlers) ?
-                    handlers :
-                    ImmutableArray<IMessageHandler>.Empty;
+                out IMessageHandler[]? handlers) ?
+                    handlers! :
+                    Array.Empty<IMessageHandler>();
 
-            return exclusiveHandlers.Length switch
+            IEnumerable<Task<IEnumerable<Message>>> responseTasks = exclusiveHandlers.Length switch
             {
                 > 1 =>
                     throw new InvalidOperationException(
                         $"Multiple handlers want exclusive handling of the message: " +
                         string.Join(", ", exclusiveHandlers.Select(handler => handler.GetType().Name))),
-                1 => exclusiveHandlers[0].HandleAsync(message),
+                1 => exclusiveHandlers[0..1].Select(handler => handler.HandleAsync(message)),
                 _ => handlersByIntent.TryGetValue(
-                    MessageIntent.Passive, out ImmutableArray<IMessageHandler> passiveHandlers) ?
-                        Task.WhenAll(passiveHandlers.Select(handler => handler.HandleAsync(message))) :
-                        Task.CompletedTask
+                    MessageIntent.Passive, out IMessageHandler[]? passiveHandlers) ?
+                        passiveHandlers!.Select(handler => handler.HandleAsync(message)) :
+                        new[] { Messages.NoneAsync }
             };
+
+            IEnumerable<Message> messages =
+                (await Task.WhenAll(responseTasks).ConfigureAwait(false)).SelectMany(m => m);
+
+            await Task.WhenAll(
+                botConfiguration.MessageTransports.Select(mt => mt.SendMessagesAsync(messages))).ConfigureAwait(false);
         }
     }
 }
