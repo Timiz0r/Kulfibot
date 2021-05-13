@@ -27,6 +27,10 @@ namespace Kulfibot
 
         //TODO: will probably use tpl dataflow to basically move this for sure off the thread of the source
         //additionally, we don't want exceptions to propagate to the sender, either.
+        //though, since we now have response messages, tpl dataflow becomes a bit harder, since we need to wait for the
+        //  results of the handlers going thru a pipeline. that or create pipelines ad-hoc, which is kinda pointless.
+        //given that, an alternate option is to abandon the "all outgoing messages are responses" design.
+        //or maybe tpl dataflow is used to queue up messages, and the logic in MessageReceivedAsync is left as-is/moved.
         public async Task MessageReceivedAsync(Message message)
         {
             //TODO: up for refactoring
@@ -39,24 +43,30 @@ namespace Kulfibot
             IMessageHandler[] exclusiveHandlers = handlersByIntent.TryGetValue(
                 MessageIntent.Exclusive,
                 out IMessageHandler[]? handlers) ?
-                    handlers! :
+                    handlers :
                     Array.Empty<IMessageHandler>();
 
-            IEnumerable<Task<IEnumerable<Message>>> responseTasks = exclusiveHandlers.Length switch
+            if (exclusiveHandlers.Length >= 2)
             {
-                > 1 =>
-                    throw new InvalidOperationException(
-                        $"Multiple handlers want exclusive handling of the message: " +
-                        string.Join(", ", exclusiveHandlers.Select(handler => handler.GetType().Name))),
-                1 => exclusiveHandlers[0..1].Select(handler => handler.HandleAsync(message)),
-                _ => handlersByIntent.TryGetValue(
-                    MessageIntent.Passive, out IMessageHandler[]? passiveHandlers) ?
-                        passiveHandlers!.Select(handler => handler.HandleAsync(message)) :
-                        new[] { Messages.NoneAsync }
-            };
+                throw new InvalidOperationException(
+                    "Multiple handlers want exclusive handling of the message: " +
+                    string.Join(", ", exclusiveHandlers.Select(handler => handler.GetType().Name)));
+            }
+
+            List<Task<IEnumerable<Message>>> handlerTasks = new();
+            if (exclusiveHandlers.Length == 1)
+            {
+                handlerTasks.Add(exclusiveHandlers[0].HandleAsync(message));
+            }
+
+            if (handlersByIntent.TryGetValue(
+                MessageIntent.Passive, out IMessageHandler[]? passiveHandlers))
+            {
+                handlerTasks.AddRange(passiveHandlers.Select(handler => handler.HandleAsync(message)));
+            }
 
             IEnumerable<Message> messages =
-                (await Task.WhenAll(responseTasks).ConfigureAwait(false)).SelectMany(m => m);
+                (await Task.WhenAll(handlerTasks).ConfigureAwait(false)).SelectMany(m => m);
 
             await Task.WhenAll(
                 botConfiguration.MessageTransports.Select(mt => mt.SendMessagesAsync(messages))).ConfigureAwait(false);

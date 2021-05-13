@@ -44,6 +44,29 @@ namespace Kulfibot.Test
         }
 
         [Test]
+        public async Task Bot_GivesMessagesToHandlers_WhenBothPassiveAndExclusive()
+        {
+            //the simulator has a passive handler already, but this makes the test look more correct
+            Message passiveResponse = new();
+            PassiveHandler passiveHandler = new(_ => true, _ => passiveResponse);
+            Message exlusiveResponse = new();
+            ExclusiveHandler exlusiveHandler = new(_ => true, _ => exlusiveResponse);
+            BotConfiguration config = new(
+                Array.Empty<IMessageTransport>(),
+                new IMessageHandler[] { passiveHandler, exlusiveHandler });
+            BotSimulator simulator = new(config);
+
+            await using (await simulator.RunBotAsync().ConfigureAwait(false))
+            {
+                await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false);
+
+                Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(2).Items);
+                Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponse));
+                Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(exlusiveResponse));
+            }
+        }
+
+        [Test]
         public async Task Bot_SendsMessages_WhenMessageHandlersRespond()
         {
             Message response = new();
@@ -75,32 +98,67 @@ namespace Kulfibot.Test
         }
 
         //TODO: if making a delegate-based handler that can replace these, do that
-        private class ExclusiveHandler : IMessageHandler
+        private class DelegateBasedHandler : IMessageHandler
         {
+            private readonly MessageIntent intent;
             private readonly Func<Message, bool> intentPredicate;
             private readonly Func<Message, IEnumerable<Message>> handler;
 
-            public ExclusiveHandler(
+            public DelegateBasedHandler(
+                MessageIntent intent,
                 Func<Message, bool> intentPredicate,
                 Func<Message, IEnumerable<Message>> handler)
             {
+                this.intent = intent;
                 this.intentPredicate = intentPredicate;
                 this.handler = handler;
             }
 
-            public ExclusiveHandler(
+            public DelegateBasedHandler(
+                MessageIntent intent,
                 Func<Message, bool> intentPredicate,
-                Func<Message, Message> handler)
+                Func<Message, Message> handler) : this(
+                    intent,
+                    intentPredicate,
+                    new Func<Message, IEnumerable<Message>>(m => new[] { handler(m) }))
             {
-                this.intentPredicate = intentPredicate;
-                this.handler = new(m => new[] { handler(m) });
             }
 
             public MessageIntent DeclareIntent(Message message) =>
-                intentPredicate(message) ? MessageIntent.Exclusive : MessageIntent.Ignore;
+                intentPredicate(message) ? intent : MessageIntent.Ignore;
 
             public Task<IEnumerable<Message>> HandleAsync(Message message) =>
                 intentPredicate(message) ? Task.FromResult(handler(message)) : Messages.NoneAsync;
+        }
+
+        private sealed class PassiveHandler : DelegateBasedHandler
+        {
+            public PassiveHandler(
+                Func<Message, bool> intentPredicate,
+                Func<Message, IEnumerable<Message>> handler) : base(MessageIntent.Passive, intentPredicate, handler)
+            {
+            }
+
+            public PassiveHandler(
+                Func<Message, bool> intentPredicate,
+                Func<Message, Message> handler) : base(MessageIntent.Passive, intentPredicate, handler)
+            {
+            }
+        }
+
+        private sealed class ExclusiveHandler : DelegateBasedHandler
+        {
+            public ExclusiveHandler(
+                Func<Message, bool> intentPredicate,
+                Func<Message, IEnumerable<Message>> handler) : base(MessageIntent.Exclusive, intentPredicate, handler)
+            {
+            }
+
+            public ExclusiveHandler(
+                Func<Message, bool> intentPredicate,
+                Func<Message, Message> handler) : base(MessageIntent.Exclusive, intentPredicate, handler)
+            {
+            }
         }
     }
 }
