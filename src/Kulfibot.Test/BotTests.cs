@@ -23,10 +23,10 @@ namespace Kulfibot.Test
         }
 
         [Test]
-        public async Task Bot_Throws_WhenMultipleExclusiveHandlers()
+        public async Task Bot_Throws_WhenMultipleCommandHandlers()
         {
-            ExclusiveHandler a = new(_ => true, _ => Messages.None);
-            ExclusiveHandler b = new(_ => true, _ => Messages.None);
+            CommandHandler a = new(_ => true, _ => Messages.None);
+            CommandHandler b = new(_ => true, _ => Messages.None);
             BotConfiguration config = new(
                 Array.Empty<IMessageTransport>(),
                 new[] { a, b });
@@ -39,18 +39,18 @@ namespace Kulfibot.Test
                 //  or IMessageHandlers can get specifically informed of conflicts
                 Assert.That(
                     async () => await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false),
-                    Throws.Exception.Message.Contains("Multiple handlers want exclusive handling of the message"));
+                    Throws.Exception.Message.Contains("Multiple handlers want command handling of the message"));
             }
         }
 
         [Test]
-        public async Task Bot_GivesMessagesToHandlers_WhenBothPassiveAndExclusive()
+        public async Task Bot_GivesMessagesToHandlers_WhenBothPassiveAndCommand()
         {
             //the simulator has a passive handler already, but this makes the test look more correct
             Message passiveResponse = new();
             PassiveHandler passiveHandler = new(_ => true, _ => passiveResponse);
             Message exlusiveResponse = new();
-            ExclusiveHandler exlusiveHandler = new(_ => true, _ => exlusiveResponse);
+            CommandHandler exlusiveHandler = new(_ => true, _ => exlusiveResponse);
             BotConfiguration config = new(
                 Array.Empty<IMessageTransport>(),
                 new IMessageHandler[] { passiveHandler, exlusiveHandler });
@@ -70,7 +70,7 @@ namespace Kulfibot.Test
         public async Task Bot_SendsMessages_WhenMessageHandlersRespond()
         {
             Message response = new();
-            ExclusiveHandler respondingHandler = new(_ => true, _ => response);
+            CommandHandler respondingHandler = new(_ => true, _ => response);
             BotConfiguration config = new(
                 Array.Empty<IMessageTransport>(),
                 new[] { respondingHandler });
@@ -146,17 +146,17 @@ namespace Kulfibot.Test
             }
         }
 
-        private sealed class ExclusiveHandler : DelegateBasedHandler
+        private sealed class CommandHandler : DelegateBasedHandler
         {
-            public ExclusiveHandler(
+            public CommandHandler(
                 Func<Message, bool> intentPredicate,
-                Func<Message, IEnumerable<Message>> handler) : base(MessageIntent.Exclusive, intentPredicate, handler)
+                Func<Message, IEnumerable<Message>> handler) : base(MessageIntent.Command, intentPredicate, handler)
             {
             }
 
-            public ExclusiveHandler(
+            public CommandHandler(
                 Func<Message, bool> intentPredicate,
-                Func<Message, Message> handler) : base(MessageIntent.Exclusive, intentPredicate, handler)
+                Func<Message, Message> handler) : base(MessageIntent.Command, intentPredicate, handler)
             {
             }
         }

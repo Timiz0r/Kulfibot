@@ -2,7 +2,6 @@ namespace Kulfibot
 {
     using System;
     using System.Collections.Generic;
-    using System.Collections.Immutable;
     using System.Linq;
     using System.Threading.Tasks;
 
@@ -40,23 +39,23 @@ namespace Kulfibot
                     .GroupBy(item => item.intent, item => item.handler)
                     .ToDictionary(group => group.Key, group => group.ToArray());
 
-            IMessageHandler[] exclusiveHandlers = handlersByIntent.TryGetValue(
-                MessageIntent.Exclusive,
+            IMessageHandler[] commandHandlers = handlersByIntent.TryGetValue(
+                MessageIntent.Command,
                 out IMessageHandler[]? handlers) ?
                     handlers :
                     Array.Empty<IMessageHandler>();
 
-            if (exclusiveHandlers.Length >= 2)
+            if (commandHandlers.Length >= 2)
             {
                 throw new InvalidOperationException(
-                    "Multiple handlers want exclusive handling of the message: " +
-                    string.Join(", ", exclusiveHandlers.Select(handler => handler.GetType().Name)));
+                    "Multiple handlers want command handling of the message: " +
+                    string.Join(", ", commandHandlers.Select(handler => handler.GetType().Name)));
             }
 
             List<Task<IEnumerable<Message>>> handlerTasks = new();
-            if (exclusiveHandlers.Length == 1)
+            if (commandHandlers.Length == 1)
             {
-                handlerTasks.Add(exclusiveHandlers[0].HandleAsync(message));
+                handlerTasks.Add(commandHandlers[0].HandleAsync(message));
             }
 
             if (handlersByIntent.TryGetValue(

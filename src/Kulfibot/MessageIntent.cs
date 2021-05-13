@@ -4,6 +4,6 @@ namespace Kulfibot
     {
         Ignore,
         Passive,
-        Exclusive
+        Command
     }
 }
