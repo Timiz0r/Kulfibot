@@ -2,6 +2,7 @@ namespace Kulfibot.Test
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.Immutable;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -28,8 +29,8 @@ namespace Kulfibot.Test
             CommandHandler a = new(_ => true, _ => Messages.None);
             CommandHandler b = new(_ => true, _ => Messages.None);
             BotConfiguration config = new(
-                Array.Empty<IMessageTransport>(),
-                new[] { a, b });
+                ImmutableList<IMessageTransport>.Empty,
+                ImmutableList.Create<IMessageHandler>(a, b));
             BotSimulator simulator = new(config);
 
             await using (await simulator.RunBotAsync().ConfigureAwait(false))
@@ -52,8 +53,8 @@ namespace Kulfibot.Test
             Message exlusiveResponse = new();
             CommandHandler exlusiveHandler = new(_ => true, _ => exlusiveResponse);
             BotConfiguration config = new(
-                Array.Empty<IMessageTransport>(),
-                new IMessageHandler[] { passiveHandler, exlusiveHandler });
+                ImmutableList<IMessageTransport>.Empty,
+                ImmutableList.Create<IMessageHandler>(passiveHandler, exlusiveHandler));
             BotSimulator simulator = new(config);
 
             await using (await simulator.RunBotAsync().ConfigureAwait(false))
@@ -72,8 +73,8 @@ namespace Kulfibot.Test
             Message response = new();
             CommandHandler respondingHandler = new(_ => true, _ => response);
             BotConfiguration config = new(
-                Array.Empty<IMessageTransport>(),
-                new[] { respondingHandler });
+                ImmutableList<IMessageTransport>.Empty,
+                ImmutableList.Create<IMessageHandler>(respondingHandler));
             BotSimulator simulator = new(config);
 
             await using (await simulator.RunBotAsync().ConfigureAwait(false))

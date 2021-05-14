@@ -1,10 +1,9 @@
 namespace Kulfibot
 {
-    using System.Collections.Generic;
+    using System.Collections.Immutable;
 
-    //TODO: use immutable collections
     public sealed record BotConfiguration(
-        IReadOnlyList<IMessageTransport> MessageTransports,
-        IReadOnlyList<IMessageHandler> MessageHandlers
+        ImmutableList<IMessageTransport> MessageTransports,
+        ImmutableList<IMessageHandler> MessageHandlers
     );
 }

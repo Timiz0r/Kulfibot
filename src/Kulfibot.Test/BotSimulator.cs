@@ -13,8 +13,8 @@ namespace Kulfibot.Test
         private readonly BotConfiguration basisConfiguration;
 
         public BotSimulator() : this(new(
-            Array.Empty<IMessageTransport>(),
-            Array.Empty<IMessageHandler>()
+            ImmutableList<IMessageTransport>.Empty,
+            ImmutableList<IMessageHandler>.Empty
         ))
         {
         }
@@ -27,10 +27,11 @@ namespace Kulfibot.Test
 
         public MessageRecord Messages { get; }
 
-        public BotConfiguration AsBotConfiguration() => new(
-            MessageTransports: basisConfiguration.MessageTransports.Concat(new[] { messageTransport }).ToArray(),
-            MessageHandlers: basisConfiguration.MessageHandlers.Concat(new[] { messageHandler }).ToArray()
-        );
+        public BotConfiguration AsBotConfiguration() => basisConfiguration with
+        {
+            MessageTransports = basisConfiguration.MessageTransports.Add(messageTransport),
+            MessageHandlers = basisConfiguration.MessageHandlers.Add(messageHandler)
+        };
 
         public Task<IAsyncDisposable> RunBotAsync()
         {
