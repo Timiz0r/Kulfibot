@@ -5,9 +5,7 @@ namespace Kulfibot
     using System.Linq;
     using System.Threading.Tasks;
 
-    //TODO: it would perhaps be more correct for this not to be an IBotMessageSink.
-    //the main consumer of Bot isn't meant to be consumed thru this (aka have MessageReceivedAsync called)
-    public class Bot : IBotMessageSink
+    public sealed class Bot : IBotMessageSink
     {
         private readonly BotConfiguration botConfiguration;
 
@@ -30,7 +28,7 @@ namespace Kulfibot
         //  results of the handlers going thru a pipeline. that or create pipelines ad-hoc, which is kinda pointless.
         //given that, an alternate option is to abandon the "all outgoing messages are responses" design.
         //or maybe tpl dataflow is used to queue up messages, and the logic in MessageReceivedAsync is left as-is/moved.
-        public async Task MessageReceivedAsync(Message message)
+        async Task IBotMessageSink.MessageReceivedAsync(Message message)
         {
             //TODO: up for refactoring
             Dictionary<MessageIntent, IMessageHandler[]> handlersByIntent =

@@ -4,7 +4,7 @@ namespace Kulfibot.Test
     using System.Threading.Tasks;
     using NUnit.Framework;
 
-    public class BotSimulatorTests
+    public sealed class BotSimulatorTests
     {
     }
 }

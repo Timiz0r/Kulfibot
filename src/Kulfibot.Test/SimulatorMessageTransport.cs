@@ -5,7 +5,7 @@ namespace Kulfibot.Test
     using System.Collections.Immutable;
     using System.Threading.Tasks;
 
-    internal class SimulatorMessageTransport : IMessageTransport
+    internal sealed class SimulatorMessageTransport : IMessageTransport
     {
         private IBotMessageSink? bot;
         public ImmutableList<Message> MessagesSent = ImmutableList<Message>.Empty;

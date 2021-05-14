@@ -6,5 +6,6 @@ namespace Kulfibot
     {
         Task MessageReceivedAsync(Message message);
         //TODO: other lifetime events of the source, like disconnection and whatnot
+        //which might just be other messages
     }
 }

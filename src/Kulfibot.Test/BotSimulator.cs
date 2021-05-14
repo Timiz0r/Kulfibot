@@ -6,7 +6,7 @@ namespace Kulfibot.Test
     using System.Threading.Tasks;
     using NUnit.Framework;
 
-    internal class BotSimulator
+    internal sealed class BotSimulator
     {
         private readonly SimulatorMessageTransport messageTransport = new();
         private readonly SimulatorMessageHandler messageHandler = new();
@@ -41,7 +41,7 @@ namespace Kulfibot.Test
         }
 
         //the things we do for an ideal interface
-        internal class MessageRecord
+        internal sealed class MessageRecord
         {
             private readonly BotSimulator simulator;
 
@@ -57,7 +57,7 @@ namespace Kulfibot.Test
             public Task SendToBotAsync(Message message) => this.simulator.messageTransport.SendToBotAsync(message);
         }
 
-        private class RunTracker : IAsyncDisposable
+        private sealed class RunTracker : IAsyncDisposable
         {
             private readonly IAsyncDisposable botRunTracker;
             private readonly BotSimulator simulator;

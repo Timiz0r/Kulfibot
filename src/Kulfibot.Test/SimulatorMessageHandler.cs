@@ -4,7 +4,7 @@ namespace Kulfibot.Test
     using System.Collections.Immutable;
     using System.Threading.Tasks;
 
-    internal class SimulatorMessageHandler : IMessageHandler
+    internal sealed class SimulatorMessageHandler : IMessageHandler
     {
         public ImmutableList<Message> MessagesReceived = ImmutableList<Message>.Empty;
 

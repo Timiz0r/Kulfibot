@@ -5,7 +5,7 @@ namespace Kulfibot.Test
     using System.Threading.Tasks;
     using NUnit.Framework;
 
-    public class BotTests
+    public sealed class BotTests
     {
         [Test]
         public async Task Bot_GivesMessagesToHandlers_WhenSentFromSource()
