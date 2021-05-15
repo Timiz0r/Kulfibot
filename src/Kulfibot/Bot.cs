@@ -45,9 +45,7 @@ namespace Kulfibot
 
             if (commandHandlers.Length >= 2)
             {
-                throw new InvalidOperationException(
-                    "Multiple handlers want command handling of the message: " +
-                    string.Join(", ", commandHandlers.Select(handler => handler.GetType().Name)));
+                //TODO: log
             }
 
             List<Task<IEnumerable<Message>>> handlerTasks = new();
