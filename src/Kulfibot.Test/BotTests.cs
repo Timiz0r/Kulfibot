@@ -14,9 +14,9 @@ namespace Kulfibot.Test
             BotSimulator simulator = new();
 
             Message message = new();
-            await using (await simulator.RunBotAsync().ConfigureAwait(false))
+            await using (await simulator.RunBotAsync())
             {
-                await simulator.Messages.SendToBotAsync(message).ConfigureAwait(false);
+                await simulator.Messages.SendToBotAsync(message);
             }
 
             Assert.That(simulator.Messages.SentToBot, Has.Exactly(1).Items);
@@ -33,13 +33,13 @@ namespace Kulfibot.Test
                 ImmutableList.Create<IMessageHandler>(a, b));
             BotSimulator simulator = new(config);
 
-            await using (await simulator.RunBotAsync().ConfigureAwait(false))
+            await using (await simulator.RunBotAsync())
             {
                 //TODO: dont really want to propagate exceptions to the message sources, so will come up with something later
                 //probably some sort of IErrorHandler, or IMessageHandlers get errors they're related to,
                 //  or IMessageHandlers can get specifically informed of conflicts
                 Assert.That(
-                    async () => await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false),
+                    async () => await simulator.Messages.SendToBotAsync(new()),
                     Throws.Exception.Message.Contains("Multiple handlers want command handling of the message"));
             }
         }
@@ -57,9 +57,9 @@ namespace Kulfibot.Test
                 ImmutableList.Create<IMessageHandler>(passiveHandler, exlusiveHandler));
             BotSimulator simulator = new(config);
 
-            await using (await simulator.RunBotAsync().ConfigureAwait(false))
+            await using (await simulator.RunBotAsync())
             {
-                await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false);
+                await simulator.Messages.SendToBotAsync(new());
 
                 Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(2).Items);
                 Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponse));
@@ -77,9 +77,9 @@ namespace Kulfibot.Test
                 ImmutableList.Create<IMessageHandler>(respondingHandler));
             BotSimulator simulator = new(config);
 
-            await using (await simulator.RunBotAsync().ConfigureAwait(false))
+            await using (await simulator.RunBotAsync())
             {
-                await simulator.Messages.SendToBotAsync(new()).ConfigureAwait(false);
+                await simulator.Messages.SendToBotAsync(new());
             }
 
             Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(1).Items);
@@ -93,9 +93,9 @@ namespace Kulfibot.Test
             Bot bot = new(simulator.AsBotConfiguration());
 
             //didn't dispose, so not stopped
-            _ = await bot.RunAsync().ConfigureAwait(false);
+            _ = await bot.RunAsync();
 
-            Assert.That(async () => _ = await bot.RunAsync().ConfigureAwait(false), Throws.Exception);
+            Assert.That(async () => _ = await bot.RunAsync(), Throws.Exception);
         }
 
         //TODO: if making a delegate-based handler that can replace these, do that

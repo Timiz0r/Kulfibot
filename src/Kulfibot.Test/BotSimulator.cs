@@ -73,7 +73,7 @@ namespace Kulfibot.Test
             }
             public async ValueTask DisposeAsync()
             {
-                await botRunTracker.DisposeAsync().ConfigureAwait(false);
+                await botRunTracker.DisposeAsync();
 
                 Assert.That(this.simulator.messageTransport.WasStarted);
                 Assert.That(this.simulator.messageTransport.IsRunning, Is.Not.True);

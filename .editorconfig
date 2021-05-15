@@ -25,7 +25,8 @@ indent_size = 2
 
 #no localization
 dotnet_diagnostic.CA1303.severity = none
-
+#if ever necessary, will leave it to the caller to use the right executioncontext
+dotnet_diagnostic.CA2007.severity = none
 
 #### .NET Coding Conventions ####
 

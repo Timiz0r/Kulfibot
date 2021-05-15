@@ -17,7 +17,7 @@ namespace Kulfibot
         public async Task<IAsyncDisposable> RunAsync()
         {
             await Task.WhenAll(
-                botConfiguration.MessageTransports.Select(source => source.SubscribeAsync(this))).ConfigureAwait(false);
+                botConfiguration.MessageTransports.Select(source => source.SubscribeAsync(this)));
 
             return new RunTracker(this);
         }
@@ -63,10 +63,10 @@ namespace Kulfibot
             }
 
             IEnumerable<Message> messages =
-                (await Task.WhenAll(handlerTasks).ConfigureAwait(false)).SelectMany(m => m);
+                (await Task.WhenAll(handlerTasks)).SelectMany(m => m);
 
             await Task.WhenAll(
-                botConfiguration.MessageTransports.Select(mt => mt.SendMessagesAsync(messages))).ConfigureAwait(false);
+                botConfiguration.MessageTransports.Select(mt => mt.SendMessagesAsync(messages)));
         }
 
         private class RunTracker : IAsyncDisposable
