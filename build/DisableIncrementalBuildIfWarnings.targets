@@ -32,7 +32,7 @@
   </PropertyGroup>
 
   <UsingTask
-    TaskName="CheckForWarnings"
+    TaskName="BuildTasks.CheckForWarnings"
     AssemblyFile="$(CommonOutputPath)\BuildTasks\BuildTasks.dll" />
 
   <ItemGroup>
