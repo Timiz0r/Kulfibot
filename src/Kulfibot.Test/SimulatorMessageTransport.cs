@@ -14,31 +14,41 @@ namespace Kulfibot.Test
 
         public bool IsRunning { get; private set; }
 
+        public bool IsStopping { get; private set; }
 
-        public Task SendToBotAsync(Message message) => bot is not null ?
-            bot.MessageReceivedAsync(message) :
-            throw new InvalidOperationException("Attempting to send a message when bot has not subscribed yet.");
 
-        Task IMessageTransport.SubscribeAsync(IBotMessageSink sink)
+        public Task SendToBotAsync(Message message) =>
+            this.bot is null
+                ? throw new InvalidOperationException(
+                    "Attempting to send a message when bot has not started the transport yet.")
+                : this.IsStopping
+                    ? Task.CompletedTask
+                    : this.bot.MessageReceivedAsync(message);
+
+        Task IMessageTransport.StartAsync(IBotMessageSink sink)
         {
-            if (bot is not null) throw new InvalidOperationException("Was not expecting another subscriber.");
+            if (this.bot is not null) throw new InvalidOperationException("Was not expecting another start.");
 
             //type check for intended type (we're testing Bot, after all), but don't depend on it specifically
-            bot = sink as Bot ?? throw new ArgumentOutOfRangeException(
+            this.bot = sink as Bot ?? throw new ArgumentOutOfRangeException(
                 nameof(sink), $"'{typeof(Bot)}' expected; got '{sink.GetType()}'.");
-            IsRunning = true;
-            WasStarted = true;
+            this.IsRunning = true;
+            this.WasStarted = true;
 
             return Task.CompletedTask;
         }
 
-        Task IMessageTransport.UnsubscribeAsync(IBotMessageSink sink)
+        public Task StoppingAsync()
+        {
+            this.IsStopping = true;
+
+            return Task.CompletedTask;
+        }
+
+        Task IMessageTransport.StopAsync()
         {
             if (bot is null) throw new InvalidOperationException(
-                "Somehow unsubscribing when never subscribed in the first place.");
-
-            if (!object.ReferenceEquals(sink, bot)) throw new ArgumentNullException(
-                nameof(sink), "Got a different bot than when subscribing.");
+                "Somehow stopping when never started in the first place.");
 
             bot = null;
             IsRunning = false;

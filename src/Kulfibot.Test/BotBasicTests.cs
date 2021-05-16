@@ -3,6 +3,7 @@ namespace Kulfibot.Test
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
+    using System.Threading;
     using System.Threading.Tasks;
     using NUnit.Framework;
 
@@ -27,7 +28,7 @@ namespace Kulfibot.Test
         public async Task Bot_SendsMessages_WhenMessageHandlersRespond()
         {
             Message response = new();
-            CommandHandler respondingHandler = new(_ => true, _ => response);
+            IMessageHandler respondingHandler = BasicHandler.CreateCommand(_ => true, _ => response);
             BotConfiguration config = new(
                 ImmutableList<IMessageTransport>.Empty,
                 ImmutableList.Create<IMessageHandler>(respondingHandler));
@@ -51,71 +52,43 @@ namespace Kulfibot.Test
             //didn't dispose, so not stopped
             _ = await bot.RunAsync();
 
-            Assert.That(async () => _ = await bot.RunAsync(), Throws.Exception);
+            Assert.That(async () => _ = await bot.RunAsync(), Throws.InvalidOperationException);
         }
 
-        //TODO: if making a delegate-based handler that can replace these, do that
-        private class DelegateBasedHandler : IMessageHandler
+        [Test]
+        public async Task Bot_WaitsForMessageHandling_WhenStoppedBeforeItIsDone()
         {
-            private readonly MessageIntent intent;
-            private readonly Func<Message, bool> intentPredicate;
-            private readonly Func<Message, IEnumerable<Message>> handler;
+            IMessageHandler respondingHandler = BasicHandler.CreateCommand(
+                _ => true,
+                async _ =>
+                {
+                    await Task.Delay(1000);
+                    return new Message();
+                });
+            BotConfiguration config = new(
+                ImmutableList<IMessageTransport>.Empty,
+                ImmutableList.Create(respondingHandler));
+            BotSimulator simulator = new(config);
 
-            public DelegateBasedHandler(
-                MessageIntent intent,
-                Func<Message, bool> intentPredicate,
-                Func<Message, IEnumerable<Message>> handler)
+            await using (await simulator.RunBotAsync())
             {
-                this.intent = intent;
-                this.intentPredicate = intentPredicate;
-                this.handler = handler;
+                await simulator.Messages.SendToBotAsync(new());
             }
 
-            public DelegateBasedHandler(
-                MessageIntent intent,
-                Func<Message, bool> intentPredicate,
-                Func<Message, Message> handler) : this(
-                    intent,
-                    intentPredicate,
-                    new Func<Message, IEnumerable<Message>>(m => new[] { handler(m) }))
-            {
-            }
-
-            public MessageIntent DeclareIntent(Message message) =>
-                intentPredicate(message) ? intent : MessageIntent.Ignore;
-
-            public Task<IEnumerable<Message>> HandleAsync(Message message) =>
-                intentPredicate(message) ? Task.FromResult(handler(message)) : Messages.NoneAsync;
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(1).Items);
         }
 
-        private sealed class PassiveHandler : DelegateBasedHandler
+        [Test]
+        public async Task Bot_Throws_WhenStartingASecondTime()
         {
-            public PassiveHandler(
-                Func<Message, bool> intentPredicate,
-                Func<Message, IEnumerable<Message>> handler) : base(MessageIntent.Passive, intentPredicate, handler)
+            BotSimulator simulator = new();
+            Bot bot = new(simulator.AsBotConfiguration());
+
+            await using (IAsyncDisposable tracker = await bot.RunAsync())
             {
             }
 
-            public PassiveHandler(
-                Func<Message, bool> intentPredicate,
-                Func<Message, Message> handler) : base(MessageIntent.Passive, intentPredicate, handler)
-            {
-            }
-        }
-
-        private sealed class CommandHandler : DelegateBasedHandler
-        {
-            public CommandHandler(
-                Func<Message, bool> intentPredicate,
-                Func<Message, IEnumerable<Message>> handler) : base(MessageIntent.Command, intentPredicate, handler)
-            {
-            }
-
-            public CommandHandler(
-                Func<Message, bool> intentPredicate,
-                Func<Message, Message> handler) : base(MessageIntent.Command, intentPredicate, handler)
-            {
-            }
+            Assert.That(async () => _ = await bot.RunAsync(), Throws.InvalidOperationException);
         }
     }
 }

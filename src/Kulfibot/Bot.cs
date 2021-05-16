@@ -4,31 +4,59 @@ namespace Kulfibot
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+    using System.Threading.Tasks.Dataflow;
 
     public sealed class Bot : IBotMessageSink
     {
+        private int hasStarted; //int for Interlocked
         private readonly BotConfiguration botConfiguration;
+        //using interface here because not 100% sure of desired block at time of writing
+        private readonly ITargetBlock<Message> receivedMessages;
+        private readonly Task messageHandlingCompletion;
 
         public Bot(BotConfiguration botConfiguration)
         {
             this.botConfiguration = botConfiguration;
+
+            //or could buffer them first
+            TransformManyBlock<Message, (Message, IMessageHandler)> messageHandlerSplitter =
+                new(m => GetMessageHandlersForMessage(m));
+            ActionBlock<(Message, IMessageHandler)> messageHandlerRunner =
+                new(pair => HandleMessage(pair.Item1, pair.Item2));
+            //or could buffer them first, batch them first, or actionblock them
+            //instead, messageHandlerRunner is responsible for sending
+
+            //not unlinking, so dont need idisposable
+            _ = messageHandlerSplitter.LinkTo(
+                messageHandlerRunner,
+                new DataflowLinkOptions() { PropagateCompletion = true });
+
+            receivedMessages = messageHandlerSplitter;
+            messageHandlingCompletion = messageHandlerRunner.Completion;
         }
 
         public async Task<IAsyncDisposable> RunAsync()
         {
+            if (receivedMessages.Completion.IsCompleted)
+            {
+                throw new InvalidOperationException("The bot cannot be started again after having been stopped.");
+            }
+
+            if (System.Threading.Interlocked.CompareExchange(ref hasStarted, 1, 0) == 1)
+            {
+                throw new InvalidOperationException("The bot is already starting or has started.");
+            }
+
             await Task.WhenAll(
-                botConfiguration.MessageTransports.Select(source => source.SubscribeAsync(this)));
+                botConfiguration.MessageTransports.Select(source => source.StartAsync(this)));
 
             return new RunTracker(this);
         }
 
-        //TODO: will probably use tpl dataflow to basically move this for sure off the thread of the source
-        //additionally, we don't want exceptions to propagate to the sender, either.
-        //though, since we now have response messages, tpl dataflow becomes a bit harder, since we need to wait for the
-        //  results of the handlers going thru a pipeline. that or create pipelines ad-hoc, which is kinda pointless.
-        //given that, an alternate option is to abandon the "all outgoing messages are responses" design.
-        //or maybe tpl dataflow is used to queue up messages, and the logic in MessageReceivedAsync is left as-is/moved.
-        async Task IBotMessageSink.MessageReceivedAsync(Message message)
+        Task IBotMessageSink.MessageReceivedAsync(Message message) =>
+            receivedMessages.SendAsync(message);
+
+        public IEnumerable<(Message, IMessageHandler)> GetMessageHandlersForMessage(Message message)
         {
             //TODO: up for refactoring
             Dictionary<MessageIntent, IMessageHandler[]> handlersByIntent =
@@ -39,32 +67,51 @@ namespace Kulfibot
 
             IMessageHandler[] commandHandlers = handlersByIntent.TryGetValue(
                 MessageIntent.Command,
-                out IMessageHandler[]? handlers) ?
-                    handlers :
-                    Array.Empty<IMessageHandler>();
+                out IMessageHandler[]? handlers)
+                    ? handlers
+                    : Array.Empty<IMessageHandler>();
 
             if (commandHandlers.Length >= 2)
             {
                 //TODO: log
             }
 
-            List<Task<IEnumerable<Message>>> handlerTasks = new();
+            List<(Message, IMessageHandler)> results = new();
             if (commandHandlers.Length == 1)
             {
-                handlerTasks.Add(commandHandlers[0].HandleAsync(message));
+                results.Add((message, commandHandlers[0]));
             }
 
             if (handlersByIntent.TryGetValue(
                 MessageIntent.Passive, out IMessageHandler[]? passiveHandlers))
             {
-                handlerTasks.AddRange(passiveHandlers.Select(handler => handler.HandleAsync(message)));
+                results.AddRange(passiveHandlers.Select(handler => (message, handler)));
             }
 
-            IEnumerable<Message> messages =
-                (await Task.WhenAll(handlerTasks)).SelectMany(m => m);
+            return results;
+        }
+
+        private async Task HandleMessage(Message message, IMessageHandler handler)
+        {
+            IEnumerable<Message> messages = Messages.None;
+            try
+            {
+                messages = await handler.HandleAsync(message);
+            }
+            //rather purposely will catch everything, since failed message handling is nothing to crash over
+            //different IMessageHandlers should be considered completely non-conflicting, from a corruption
+            //point-of-view. not dissimilar to, for instance, asp.net.
+#pragma warning disable CA1031
+            catch (System.Exception)
+#pragma warning restore CA1031
+            {
+                //TODO: log
+                return;
+            }
 
             await Task.WhenAll(
-                botConfiguration.MessageTransports.Select(mt => mt.SendMessagesAsync(messages)));
+                this.botConfiguration.MessageTransports.Select(t => t.SendMessagesAsync(messages))
+            );
         }
 
         private class RunTracker : IAsyncDisposable
@@ -77,9 +124,17 @@ namespace Kulfibot
             }
 
             //start is run by the one that instantiated this instance, since we certainly cant call it in the ctor
-            public ValueTask DisposeAsync() => new(
-                Task.WhenAll(
-                    this.bot.botConfiguration.MessageTransports.Select(source => source.UnsubscribeAsync(this.bot))));
+            public async ValueTask DisposeAsync()
+            {
+                await Task.WhenAll(
+                    this.bot.botConfiguration.MessageTransports.Select(source => source.StoppingAsync()));
+
+                this.bot.receivedMessages.Complete();
+                await this.bot.messageHandlingCompletion;
+
+                await Task.WhenAll(
+                    this.bot.botConfiguration.MessageTransports.Select(source => source.StopAsync()));
+            }
         }
     }
 }

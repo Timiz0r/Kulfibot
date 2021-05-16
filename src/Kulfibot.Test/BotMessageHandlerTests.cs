@@ -13,39 +13,39 @@ namespace Kulfibot.Test
         {
             Message passiveResponseA = new();
             Message passiveResponseB = new();
-            PassiveHandler passiveHandlerA = new(_ => true, _ => passiveResponseA);
-            PassiveHandler passiveHandlerB = new(_ => true, _ => passiveResponseB);
+            IMessageHandler passiveHandlerA = BasicHandler.CreatePassive(_ => true, _ => passiveResponseA);
+            IMessageHandler passiveHandlerB = BasicHandler.CreatePassive(_ => true, _ => passiveResponseB);
             BotConfiguration config = new(
                 ImmutableList<IMessageTransport>.Empty,
-                ImmutableList.Create<IMessageHandler>(passiveHandlerA, passiveHandlerB));
+                ImmutableList.Create(passiveHandlerA, passiveHandlerB));
             BotSimulator simulator = new(config);
 
             await using (await simulator.RunBotAsync())
             {
                 await simulator.Messages.SendToBotAsync(new());
-
-                Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(2).Items);
-                Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponseA));
-                Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponseB));
             }
+
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(2).Items);
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponseA));
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponseB));
         }
 
         [Test]
         public async Task Bot_RunsNoCommandHandlers_WhenMultipleCommandHandlers()
         {
-            CommandHandler commandHandlerA = new(_ => true, _ => new Message());
-            CommandHandler commandHandlerB = new(_ => true, _ => new Message());
+            IMessageHandler commandHandlerA = BasicHandler.CreateCommand(_ => true, _ => new Message());
+            IMessageHandler commandHandlerB = BasicHandler.CreateCommand(_ => true, _ => new Message());
             BotConfiguration config = new(
                 ImmutableList<IMessageTransport>.Empty,
-                ImmutableList.Create<IMessageHandler>(commandHandlerA, commandHandlerB));
+                ImmutableList.Create(commandHandlerA, commandHandlerB));
             BotSimulator simulator = new(config);
 
             await using (await simulator.RunBotAsync())
             {
                 await simulator.Messages.SendToBotAsync(new());
-
-                Assert.That(simulator.Messages.ReceivedFromBot, Is.Empty);
             }
+
+            Assert.That(simulator.Messages.ReceivedFromBot, Is.Empty);
         }
 
         [Test]
@@ -53,23 +53,23 @@ namespace Kulfibot.Test
         {
             Message passiveResponseA = new();
             Message passiveResponseB = new();
-            CommandHandler commandHandlerA = new(_ => true, _ => new Message());
-            CommandHandler commandHandlerB = new(_ => true, _ => new Message());
-            PassiveHandler passiveHandlerA = new(_ => true, _ => passiveResponseA);
-            PassiveHandler passiveHandlerB = new(_ => true, _ => passiveResponseB);
+            IMessageHandler commandHandlerA = BasicHandler.CreateCommand(_ => true, _ => new Message());
+            IMessageHandler commandHandlerB = BasicHandler.CreateCommand(_ => true, _ => new Message());
+            IMessageHandler passiveHandlerA = BasicHandler.CreatePassive(_ => true, _ => passiveResponseA);
+            IMessageHandler passiveHandlerB = BasicHandler.CreatePassive(_ => true, _ => passiveResponseB);
             BotConfiguration config = new(
                 ImmutableList<IMessageTransport>.Empty,
-                ImmutableList.Create<IMessageHandler>(commandHandlerA, commandHandlerB, passiveHandlerA, passiveHandlerB));
+                ImmutableList.Create(commandHandlerA, commandHandlerB, passiveHandlerA, passiveHandlerB));
             BotSimulator simulator = new(config);
 
             await using (await simulator.RunBotAsync())
             {
                 await simulator.Messages.SendToBotAsync(new());
-
-                Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(2).Items);
-                Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponseA));
-                Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponseB));
             }
+
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(2).Items);
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponseA));
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponseB));
         }
 
         [Test]
@@ -77,86 +77,68 @@ namespace Kulfibot.Test
         {
             //the simulator has a passive handler already, but this makes the test look more correct
             Message passiveResponse = new();
-            PassiveHandler passiveHandler = new(_ => true, _ => passiveResponse);
+            IMessageHandler passiveHandler = BasicHandler.CreatePassive(_ => true, _ => passiveResponse);
             Message commandResponse = new();
-            CommandHandler commandHandler = new(_ => true, _ => commandResponse);
+            IMessageHandler commandHandler = BasicHandler.CreateCommand(_ => true, _ => commandResponse);
             BotConfiguration config = new(
                 ImmutableList<IMessageTransport>.Empty,
-                ImmutableList.Create<IMessageHandler>(passiveHandler, commandHandler));
+                ImmutableList.Create(passiveHandler, commandHandler));
             BotSimulator simulator = new(config);
 
             await using (await simulator.RunBotAsync())
             {
                 await simulator.Messages.SendToBotAsync(new());
+            }
 
-                Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(2).Items);
-                Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponse));
-                Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(commandResponse));
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(2).Items);
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponse));
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(commandResponse));
+        }
+
+        [Test]
+        public async Task Bot_DoesNothingInParticular_WhenHandlerThrows()
+        {
+            //the simulator has a passive handler already, but this makes the test look more correct
+            IMessageHandler handler = BasicHandler.CreatePassive(
+                _ => true,
+                new Func<Message, Message>(_ => throw new InvalidOperationException()));
+            BotConfiguration config = new(
+                ImmutableList<IMessageTransport>.Empty,
+                ImmutableList.Create(handler));
+            BotSimulator simulator = new(config);
+
+            await using (await simulator.RunBotAsync())
+            {
+                await simulator.Messages.SendToBotAsync(new());
             }
         }
 
-        //TODO: if making a delegate-based handler that can replace these, do that
-        private class DelegateBasedHandler : IMessageHandler
+        [Test]
+        public async Task Bot_SendsResponses_WhenSomeHandlersFailButOthersDont()
         {
-            private readonly MessageIntent intent;
-            private readonly Func<Message, bool> intentPredicate;
-            private readonly Func<Message, IEnumerable<Message>> handler;
+            Message commandResponse = new();
+            Message passiveResponse = new();
+            IMessageHandler commandHandlerSucceed = BasicHandler.CreateCommand(_ => true, _ => commandResponse);
+            IMessageHandler passiveHandlerSucceed = BasicHandler.CreatePassive(_ => true, _ => passiveResponse);
+            IMessageHandler passiveHandlerFail = BasicHandler.CreatePassive(
+                _ => true,
+                new Func<Message, Message>(_ => throw new InvalidOperationException()));
+            BotConfiguration config = new(
+                ImmutableList<IMessageTransport>.Empty,
+                ImmutableList.Create(
+                    commandHandlerSucceed,
+                    passiveHandlerSucceed,
+                    passiveHandlerFail));
+            BotSimulator simulator = new(config);
 
-            public DelegateBasedHandler(
-                MessageIntent intent,
-                Func<Message, bool> intentPredicate,
-                Func<Message, IEnumerable<Message>> handler)
+            await using (await simulator.RunBotAsync())
             {
-                this.intent = intent;
-                this.intentPredicate = intentPredicate;
-                this.handler = handler;
+                await simulator.Messages.SendToBotAsync(new());
             }
 
-            public DelegateBasedHandler(
-                MessageIntent intent,
-                Func<Message, bool> intentPredicate,
-                Func<Message, Message> handler) : this(
-                    intent,
-                    intentPredicate,
-                    new Func<Message, IEnumerable<Message>>(m => new[] { handler(m) }))
-            {
-            }
-
-            public MessageIntent DeclareIntent(Message message) =>
-                intentPredicate(message) ? intent : MessageIntent.Ignore;
-
-            public Task<IEnumerable<Message>> HandleAsync(Message message) =>
-                intentPredicate(message) ? Task.FromResult(handler(message)) : Messages.NoneAsync;
-        }
-
-        private sealed class PassiveHandler : DelegateBasedHandler
-        {
-            public PassiveHandler(
-                Func<Message, bool> intentPredicate,
-                Func<Message, IEnumerable<Message>> handler) : base(MessageIntent.Passive, intentPredicate, handler)
-            {
-            }
-
-            public PassiveHandler(
-                Func<Message, bool> intentPredicate,
-                Func<Message, Message> handler) : base(MessageIntent.Passive, intentPredicate, handler)
-            {
-            }
-        }
-
-        private sealed class CommandHandler : DelegateBasedHandler
-        {
-            public CommandHandler(
-                Func<Message, bool> intentPredicate,
-                Func<Message, IEnumerable<Message>> handler) : base(MessageIntent.Command, intentPredicate, handler)
-            {
-            }
-
-            public CommandHandler(
-                Func<Message, bool> intentPredicate,
-                Func<Message, Message> handler) : base(MessageIntent.Command, intentPredicate, handler)
-            {
-            }
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Exactly(2).Items);
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(commandResponse));
+            Assert.That(simulator.Messages.ReceivedFromBot, Has.Member(passiveResponse));
         }
     }
 }
