@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kulfibot", "..\Kulfibot\Kul
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kulfibot.Test", "..\Kulfibot.Test\Kulfibot.Test.csproj", "{5E955197-8940-4E97-B2C6-C48C9BC2ED8B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kulfibot.Discord", "..\Kulfibot.Discord\Kulfibot.Discord.csproj", "{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{5E955197-8940-4E97-B2C6-C48C9BC2ED8B}.Release|x64.Build.0 = Release|Any CPU
 		{5E955197-8940-4E97-B2C6-C48C9BC2ED8B}.Release|x86.ActiveCfg = Release|Any CPU
 		{5E955197-8940-4E97-B2C6-C48C9BC2ED8B}.Release|x86.Build.0 = Release|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Debug|x64.Build.0 = Debug|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Debug|x86.Build.0 = Debug|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Release|x64.ActiveCfg = Release|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Release|x64.Build.0 = Release|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Release|x86.ActiveCfg = Release|Any CPU
+		{BF15D7F7-FA57-496E-B3F1-A04F2C3A6A1A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
