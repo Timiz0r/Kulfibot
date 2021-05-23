@@ -252,7 +252,7 @@ namespace Kulfibot.Discord
                 //if the socket still open (aka can send), gotta close
                 if (!CanSend())
                 {
-                    //TODO: InternalServerError is kinda wrong for a client perhaps
+                    //TODO: InternalServerError is kinda wrong for a client perhaps. couldnt think of alternative
                     await webSocket.CloseOutputAsync(
                         error ? WebSocketCloseStatus.InternalServerError : WebSocketCloseStatus.NormalClosure,
                         "",
