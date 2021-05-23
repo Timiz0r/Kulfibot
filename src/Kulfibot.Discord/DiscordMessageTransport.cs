@@ -1,4 +1,4 @@
-﻿namespace Kulfibot.Discord
+namespace Kulfibot.Discord
 {
     using System;
     using System.Buffers;
@@ -17,34 +17,35 @@
         private static readonly Uri Endpoint = new("https://discord.com/api/v9");
         private readonly HttpClient httpClient = new();
         private readonly WebSocketPipe webSocketPipe = new();
-        private readonly DiscordConfiguration discordConfiguration;
+        private readonly DiscordSecrets discordSecrets;
         private IBotMessageSink bot = new NullBotMessageSink();
         private Task processingLoop = Task.CompletedTask;
         private bool stopping;
 
         public DiscordMessageTransport(
-            DiscordConfiguration discordConfiguration
+            DiscordSecrets discordSecrets
         )
         {
-            this.discordConfiguration = discordConfiguration;
+            this.discordSecrets = discordSecrets;
 
             this.httpClient.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bot", discordConfiguration.BotToken);
+                new AuthenticationHeaderValue("Bot", discordSecrets.BotToken);
         }
 
-        public Task SendMessagesAsync(IEnumerable<Message> message) => throw new System.NotImplementedException();
+        public Task SendMessagesAsync(IEnumerable<Message> message) => Task.CompletedTask;
+
         public async Task StartAsync(IBotMessageSink sink)
         {
             this.bot = sink;
             this.stopping = false;
 
-            HttpResponseMessage gatewayBotResponseMessage = await this.httpClient.GetAsync(GetUri("/gateway/bot"));
+            HttpResponseMessage gatewayBotResponseMessage = await this.httpClient.GetAsync(GetUri("gateway/bot"));
             _ = gatewayBotResponseMessage.EnsureSuccessStatusCode();
             GatewayBotResponse? gatewayBotResponse =
                 await gatewayBotResponseMessage.Content.ReadFromJsonAsync<GatewayBotResponse>();
 
             //have no idea how this can be null yet
-            await this.webSocketPipe.StartAsync(new Uri(gatewayBotResponse!.Url), CancellationToken.None);
+            await this.webSocketPipe.StartAsync(new Uri(gatewayBotResponse!.Url + "?v=9&encoding=json"), CancellationToken.None);
 
             processingLoop = ProcessingLoop();
         }
@@ -71,7 +72,7 @@
                 //it'll also do heartbeats, so this positioning perhaps changes.
                 if (this.stopping) break;
 
-                ReadResult readResult = await webSocketPipe.Input.ReadAsync();
+                ReadResult readResult = await this.webSocketPipe.Input.ReadAsync();
                 ReadOnlySequence<byte> buffer = readResult.Buffer;
 
                 if (readResult.IsCanceled)
@@ -89,7 +90,9 @@
                     continue;
                 }
 
-                List<RawPayload> payloads = Parse(buffer);
+                List<RawPayload> payloads = Parse(buffer, out SequencePosition consumedTo);
+                this.webSocketPipe.Input.AdvanceTo(consumedTo);
+
                 foreach (RawPayload payload in payloads)
                 {
                     //this admittedly shouldnt take long, and there likely arent many payloads
@@ -99,12 +102,18 @@
                 }
             }
 
-            static List<RawPayload> Parse(ReadOnlySequence<byte> buffer)
+            static List<RawPayload> Parse(ReadOnlySequence<byte> buffer, out SequencePosition consumedTo)
             {
                 List<RawPayload> payloads = new();
+                consumedTo = buffer.Start;
 
                 while (true)
                 {
+                    if (buffer.IsEmpty)
+                    {
+                        return payloads;
+                    }
+
                     //avoid JsonSerializer for this because culture invariant JsonException handling may get weird
                     //(depending on localization).
                     //rather, inspecting the message may not work as expected in japan (etc).
@@ -120,7 +129,8 @@
                     RawPayload payload = JsonSerializer.Deserialize<RawPayload>(ref jsonReader)!;
                     payloads.Add(payload);
 
-                    buffer = buffer.Slice(jsonReader.BytesConsumed + 1, buffer.End);
+                    consumedTo = buffer.GetPosition(jsonReader.BytesConsumed);
+                    buffer = buffer.Slice(jsonReader.BytesConsumed, buffer.End);
                 }
 
                 //things to think about:
@@ -139,7 +149,7 @@
             }
         }
 
-        private static Uri GetUri(string path) => new Uri(Endpoint, path);
+        private static Uri GetUri(string path) => new(Endpoint, path);
 
         private record GatewayBotResponse(string Url);
 
@@ -157,7 +167,5 @@
             [JsonPropertyName("t")]
             public string? Name { get; init; }
         }
-
-        public record DebugMessage(RawPayload RawPayload) : Message;
     }
 }

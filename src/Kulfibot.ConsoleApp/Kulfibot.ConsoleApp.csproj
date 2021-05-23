@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
-
+  <ItemGroup>
+    <ProjectReference Include="$(SrcRoot)\Kulfibot\Kulfibot.csproj" />
+    <ProjectReference Include="$(SrcRoot)\Kulfibot.Discord\Kulfibot.Discord.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="secrets.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

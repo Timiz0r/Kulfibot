@@ -1,5 +1,6 @@
 namespace Kulfibot.Discord
 {
-    public record DiscordConfiguration(
-        string BotToken);
+    public record DiscordConfiguration()
+    {
+    }
 }
