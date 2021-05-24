@@ -265,7 +265,7 @@ namespace Kulfibot.Discord
             //the reference code prefers a function.
             //I interpret that to be that a post-send failure may update the state.
             bool CanSend() =>
-                this.webSocket?.State is WebSocketState.CloseSent or WebSocketState.Closed or WebSocketState.Aborted;
+                this.webSocket?.State is not WebSocketState.CloseSent and not WebSocketState.Closed and not WebSocketState.Aborted;
         }
     }
 

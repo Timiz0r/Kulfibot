@@ -1,9 +1,10 @@
-namespace Kulfibot.Discord
+﻿namespace Kulfibot.Discord
 {
     using System;
     using System.Buffers;
     using System.Collections.Generic;
     using System.IO.Pipelines;
+    using System.Linq;
     using System.Net.Http;
     using System.Net.Http.Headers;
     using System.Net.Http.Json;
@@ -11,28 +12,34 @@ namespace Kulfibot.Discord
     using System.Text.Json.Serialization;
     using System.Threading;
     using System.Threading.Tasks;
+    using System.Threading.Tasks.Dataflow;
+    using Kulfibot.Discord.Messages;
 
     public sealed class DiscordMessageTransport : IMessageTransport
     {
         private static readonly Uri Endpoint = new("https://discord.com/api/v9");
         private readonly HttpClient httpClient = new();
         private readonly WebSocketPipe webSocketPipe = new();
-        private readonly DiscordSecrets discordSecrets;
         private IBotMessageSink bot = new NullBotMessageSink();
         private Task processingLoop = Task.CompletedTask;
         private bool stopping;
+        private readonly ActionBlock<DiscordMessage> processMessages;
+        private readonly ActionBlock<IEnumerable<DiscordResponseMessage>> sendMessages;
 
         public DiscordMessageTransport(
             DiscordSecrets discordSecrets
         )
         {
-            this.discordSecrets = discordSecrets;
-
             this.httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bot", discordSecrets.BotToken);
+
+            this.processMessages = new(m => ProcessMessageAsync(m));
+            //could hypothetically
+            this.sendMessages = new(ms => SendMessagesToWebsocketAsync(ms));
         }
 
-        public Task SendMessagesAsync(IEnumerable<Message> message) => Task.CompletedTask;
+        public Task SendMessagesAsync(IEnumerable<Message> messages) =>
+            this.sendMessages.SendAsync(messages.OfType<DiscordResponseMessage>());
 
         public async Task StartAsync(IBotMessageSink sink)
         {
@@ -97,8 +104,8 @@ namespace Kulfibot.Discord
                 {
                     //this admittedly shouldnt take long, and there likely arent many payloads
                     //still, not the best to await here.
-                    //TODO: instead, use tpl dataflow.
-                    await bot.MessageReceivedAsync(new DebugMessage(payload));
+                    //TODO: put them in all at once
+                    _ = await this.processMessages.SendAsync(DiscordMessage.FromPayload(payload));
                 }
             }
 
@@ -149,23 +156,38 @@ namespace Kulfibot.Discord
             }
         }
 
+        private Task SendMessagesToWebsocketAsync(IEnumerable<DiscordResponseMessage> messages)
+        {
+            using Utf8JsonWriter jsonWriter = new(this.webSocketPipe.Output);
+            foreach (DiscordResponseMessage message in messages)
+            {
+                message.Serialize(jsonWriter);
+            }
+
+            return this.webSocketPipe.Output.FlushAsync().AsTask();
+        }
+
+        //TODO: could consider UnknownMessage as a special case
+        private Task ProcessMessageAsync(DiscordMessage discordMessage)
+        {
+            Task rawMessageTask = this.bot.MessageReceivedAsync(discordMessage);
+
+            Message? result = discordMessage switch
+            {
+                { Opcode: 10 } => discordMessage.ConvertData<HelloMessage>(),
+                _ => null
+            };
+
+            return result is null
+                ? rawMessageTask
+                : Task.WhenAll(
+                    rawMessageTask,
+                    this.bot.MessageReceivedAsync(result)
+                );
+        }
+
         private static Uri GetUri(string path) => new(Endpoint, path);
 
         private record GatewayBotResponse(string Url);
-
-        public record RawPayload
-        {
-            [JsonPropertyName("op")]
-            public int Opcode { get; init; }
-
-            [JsonPropertyName("d")]
-            public JsonElement? Data { get; init; }
-
-            [JsonPropertyName("s")]
-            public int? Sequence { get; init; }
-
-            [JsonPropertyName("t")]
-            public string? Name { get; init; }
-        }
     }
 }
